@@ -11,7 +11,7 @@ export const loader: LoaderFunction = async ({ request }) => {
   const userId = await getUserId(request);
 
   if (!userId) {
-    console.log('💩');
+    console.log('No session 💩');
     throw redirect('/');
   }
 
@@ -28,6 +28,7 @@ export default function ProfilePage() {
       <p>
         You're signed in with user ID: <code>{userId}</code>
       </p>
+
       <Form method="post">
         <button>Logout</button>
       </Form>
