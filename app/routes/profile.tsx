@@ -1,20 +1,16 @@
 import type { ActionFunction, LoaderFunction } from '@remix-run/node';
-import { json, redirect } from '@remix-run/node';
+import { json } from '@remix-run/node';
 import { Form, useLoaderData } from '@remix-run/react';
-import { getUserId, logout } from '~/utils/session.server';
+import { logout, requireUserId } from '../utils/session.server';
 
+// this should be a separate route so that it can be reused
 export const action: ActionFunction = async ({ request }) => {
   return logout(request);
 };
 
 export const loader: LoaderFunction = async ({ request }) => {
-  const userId = await getUserId(request);
-
-  if (!userId) {
-    console.log('No session 💩');
-    throw redirect('/');
-  }
-
+  // this handles the redirect-on-fail for us
+  const userId = await requireUserId(request);
   return json({ userId });
 };
 
@@ -24,10 +20,7 @@ export default function ProfilePage() {
   return (
     <div>
       <h1>Supabase Magic Link x Remix</h1>
-      <h2>Profile</h2>
-      <p>
-        You're signed in with user ID: <code>{userId}</code>
-      </p>
+      <p>You're signed in with user ID: {userId}</p>
 
       <Form method="post">
         <button>Logout</button>

@@ -1,7 +1,33 @@
 import { createCookieSessionStorage, redirect } from '@remix-run/node';
+import type { EmailOtpType } from '@supabase/supabase-js';
+import supabase from './supabase.server';
 
-const REDIRECT_UNAUTHORIZED = '/';
-const REDIRECT_AUTHORIZED = '/profile';
+type LoginForm = {
+  email: string;
+};
+
+async function login({ email }: LoginForm) {
+  const { data, error } = await supabase.auth.signInWithOtp({ email });
+  if (!data || error) {
+    return null;
+  }
+  return data;
+}
+
+type VerifyParams = {
+  email: string;
+  token: string;
+  type: EmailOtpType;
+};
+
+async function verify({ email, type, token }: VerifyParams) {
+  const { data, error } = await supabase.auth.verifyOtp({ email, type, token });
+  const userId = data.user?.id;
+  if (error || !userId || typeof userId !== 'string') {
+    return null;
+  }
+  return userId;
+}
 
 const sessionSecret = process.env.SESSION_SECRET;
 if (!sessionSecret) {
@@ -10,7 +36,7 @@ if (!sessionSecret) {
 
 const storage = createCookieSessionStorage({
   cookie: {
-    name: 'app_session',
+    name: 'supabase-magic-link-auth-x-remix-session',
     // normally you want this to be `secure: true`
     // but that doesn't work on localhost for Safari
     // https://web.dev/when-to-use-local-https/
@@ -23,16 +49,6 @@ const storage = createCookieSessionStorage({
   },
 });
 
-async function createUserSession(userId: string, redirectTo: string = REDIRECT_AUTHORIZED) {
-  const session = await storage.getSession();
-  session.set('userId', userId);
-  return redirect(redirectTo, {
-    headers: {
-      'Set-Cookie': await storage.commitSession(session),
-    },
-  });
-}
-
 function getUserSession(request: Request) {
   return storage.getSession(request.headers.get('Cookie'));
 }
@@ -44,17 +60,31 @@ async function getUserId(request: Request) {
   return userId;
 }
 
-/**
- * Clear the active session and redirect
- * @returns Redirect
- */
+async function requireUserId(request: Request) {
+  const userId = await getUserId(request);
+  if (!userId || typeof userId !== 'string') {
+    throw redirect('/');
+  }
+  return userId;
+}
+
 async function logout(request: Request) {
   const session = await getUserSession(request);
-  return redirect(REDIRECT_UNAUTHORIZED, {
+  return redirect('/', {
     headers: {
       'Set-Cookie': await storage.destroySession(session),
     },
   });
 }
 
-export { createUserSession, getUserId, logout };
+async function createUserSession(userId: string, redirectTo: string) {
+  const session = await storage.getSession();
+  session.set('userId', userId);
+  return redirect(redirectTo, {
+    headers: {
+      'Set-Cookie': await storage.commitSession(session),
+    },
+  });
+}
+
+export { login, verify, getUserId, requireUserId, logout, createUserSession };

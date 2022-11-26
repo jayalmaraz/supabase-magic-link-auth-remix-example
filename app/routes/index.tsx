@@ -1,9 +1,10 @@
 import type { ActionFunction } from '@remix-run/node';
 import { json, redirect } from '@remix-run/node';
 import { Form, useActionData } from '@remix-run/react';
-import supabase from '~/utils/supabase';
+import { login } from '../utils/session.server';
 
 export const action: ActionFunction = async ({ request }) => {
+  // get the email value from the sign in form
   const formData = await request.formData();
   const email = formData.get('email');
 
@@ -11,13 +12,15 @@ export const action: ActionFunction = async ({ request }) => {
     return json({ error: 'Form error 💩' });
   }
 
-  const { error } = await supabase.auth.signInWithOtp({ email });
+  // sign in with email
+  const data = await login({ email });
 
-  if (error) {
+  if (!data) {
     return json({ error: 'Supabase error 💩' });
   }
 
-  return redirect('/confirm');
+  // redirect to "check your email" screen
+  return redirect('/auth/confirm');
 };
 
 export default function Index() {
@@ -27,8 +30,8 @@ export default function Index() {
       <h1>Supabase Magic Link x Remix</h1>
 
       <Form method="post">
-        <input placeholder="Email" name="email" type="email" />
-        <button type="submit">Login</button>
+        <input name="email" placeholder="Email Address" type="email" />
+        <button type="submit">Login/Create account</button>
       </Form>
 
       {data?.error && <p>{data?.error}</p>}
